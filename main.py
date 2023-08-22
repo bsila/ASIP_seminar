@@ -1,4 +1,5 @@
 # %% - učitavanje knjižnica i konstanti
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -221,3 +222,108 @@ plot_water_levels(water_level_array)
 
 # %% - pozivanje funkcije za analizu
 correlate_water_levels(water_level_array)
+
+
+# %% - funkcija za pretvaranje water_level_array u DataFrame
+def water_lvl_2_df(water_level_array):
+    return pd.DataFrame(water_level_array, columns=["Datum", "Vodostaj", "ID"])
+
+
+# %% - funkcija za SVD
+import numpy as np
+
+
+def svd_analysis(data):
+    # Izvodi SVD analizu na matrici podataka
+    data = pd.DataFrame(data, columns=["Datum", "Vodostaj", "ID"])
+
+    data["Vodostaj"] = pd.to_numeric(data["Vodostaj"])
+
+    # data = data.pivot(index="ID", columns="Datum", values="Vodostaj")
+    data = data.pivot(index="Datum", columns="ID", values="Vodostaj")
+
+    data = data.to_numpy()
+
+    U, S, Vt = np.linalg.svd(data, full_matrices=False)
+
+    # Vraća rezultate SVD analize
+    return U, S, Vt
+
+
+U, S, V = svd_analysis(water_level_array)
+
+print(f"U shape: {U.shape}, S shape: {S.shape}, V shape: {V.shape}")
+
+
+# %% - prikaz SVD rezultata
+# Iscrtavanje lijevih singularnih vektora
+plt.figure(figsize=(10, 4))
+plt.subplot(1, 2, 1)
+for i in range(U.shape[1]):
+    plt.plot(U[:, i], label=f"Komponenta {i + 1}")
+plt.xlabel("Indeks mjerenja")
+plt.ylabel("Vrijednost")
+plt.title("Lijevi singularni vektori")
+plt.legend()
+
+# Iscrtavanje desnih singularnih vektora
+plt.subplot(1, 2, 2)
+for i in range(V.shape[1]):
+    plt.plot(V[:, i], label=f"Komponenta {i + 1}")
+plt.xlabel("Indeks mjernih postaja")
+plt.ylabel("Vrijednost")
+plt.title("Desni singularni vektori")
+plt.legend()
+
+plt.tight_layout()
+plt.show()
+
+# Iscrtavanje singularnih vrijednosti
+plt.figure(figsize=(6, 4))
+plt.bar(range(1, len(S) + 1), S)
+plt.xlabel("Komponenta")
+plt.ylabel("Singularna Vrijednost")
+plt.title("Singularne Vrijednosti")
+plt.show()
+
+
+# %% - rekonstrukcija podataka
+# Broj komponenata koje želite zadržati
+def reconstruct_svd(U, S, V, num_components=3):
+    # Rekonstrukcija podataka
+    reconstructed_data = np.dot(
+        U[:, :num_components],
+        np.dot(np.diag(S[:num_components]), V[:num_components, :]),
+    )
+
+    plt.figure(figsize=(10, 6))
+
+    for i in range(reconstructed_data.shape[1]):
+        plt.plot(reconstructed_data[:, i], label=f"Komponenta {i + 1}")
+
+    plt.xlabel("Vremenski korak")
+    plt.ylabel("Rekonstruirani Vodostaj")
+    plt.title("Rekonstrukcija Vodostaja iz SVD Komponenata")
+    plt.legend()
+    plt.grid(True)
+
+    plt.show()
+
+
+reconstruct_svd(U, S, V, 2)
+
+# %% - provjera na manjem setu podatka
+svd_test_data = water_lvl_2_df(water_level_array)
+svd_test_data["Datum"] = pd.to_datetime(svd_test_data["Datum"], format="%d.%m.%Y")
+svd_test_data = svd_test_data.loc[svd_test_data["Datum"] > "1.1.2020"]
+svd_test_data["Datum"] = svd_test_data["Datum"].dt.strftime("%d.%m.%Y")
+svd_test_data = svd_test_data.values
+
+U, S, V = svd_analysis(svd_test_data)
+
+plot_water_levels(svd_test_data)
+
+for i in range(4):
+    reconstruct_svd(U, S, V, i + 1)
+
+# %%
